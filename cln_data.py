@@ -6,11 +6,13 @@
 # @Software: PyCharm
 import os
 import re
-import jieba.posseg as pseg
+import jieba
 import pandas as pd
 import math
 import nltk
+import numpy as np
 from nltk import TextCollection
+from sklearn.naive_bayes import GaussianNB
 
 dataset_path = './dataset'
 
@@ -45,14 +47,14 @@ def read_to_save():
 
 def proc_text(raw_line):
     stopwords = [line.rstrip() for line in open('stopwords.txt','r',encoding='utf-8')]
-    filter_pattern = re.compile('^[\u4E00-\u9FA5A-Za-z]+$')
+    filter_pattern = re.compile('[^\u4E00-\u9FD5]+')
     cln_line = filter_pattern.sub('',raw_line)
 
-    word_lst = pseg.cut(cln_line)
+    word_lst = jieba.cut(cln_line)
 
     meaninful_words = []
     for word in word_lst:
-        if (word not in stopwords) and (word != ' '):
+        if word not in stopwords:
             meaninful_words.append(word)
 
     return ' '.join('%s'%word for word in meaninful_words)
@@ -95,15 +97,79 @@ def get_word_list_from_data(text_df):
 
     return word_list
 
+def extract_feat_from_data(text_df,text_collection,common_words_freqs):
+
+    n_sample = text_df.shape[0]
+    n_feat = len(common_words_freqs)
+    common_words = [word for word,_ in common_words_freqs]
+
+    X = np.zeros([n_sample,n_feat])
+    y = np.zeros(n_sample)
+
+    print('提取特征...')
+    for i,r_data in text_df.iterrows():
+        print('已完成{}个样本的特征提取'.format(i+1))
+
+        text = r_data['text']
+        feat_vec = []
+        for word in common_words:
+            if word in text:
+                tf_idf_val = text_collection.tf_idf(word,text)
+            else:
+                tf_idf_val = 0
+
+            feat_vec.append(tf_idf_val)
+
+        X[i,:] = np.array(feat_vec)
+
+        y[i] = int(r_data['salary'].split('-')[0])
+
+    return X,y
+
+def cal_acc(true_salarys,pred_salarys):
+
+     n_total = len(true_salarys)
+     correct_list = [true_salarys[i] == pred_salarys[i] for i in range(n_total)]
+
+     acc = sum(correct_list) / n_total
+     return acc
+
+
 if __name__ == '__main__':
+
+    #加载
+    #run_main()
+
+
     train_text_df,test_text_df = load_train_set()
 
-    n_common_words = 100
+    n_common_words = 200
 
     all_words_in_train = get_word_list_from_data(train_text_df)
 
     fdisk = nltk.FreqDist(all_words_in_train)
-    common_words_freq = fdisk.most_common(n_common_words)
+    common_words_freqs = fdisk.most_common(n_common_words)
 
-    for word,count in common_words_freq:
+    for word,count in common_words_freqs:
         print('{}:{}'.format(word,count))
+
+    text_collection = TextCollection(train_text_df['text'].values.tolist())
+    print('训练样本特征提取')
+    train_X,train_y = extract_feat_from_data(train_text_df,text_collection,common_words_freqs)
+    print('完成')
+
+    print('测试样本特征提取')
+    test_X,test_y = extract_feat_from_data(test_text_df,text_collection,common_words_freqs)
+    print('完成')
+
+    print('训练模型...')
+    gnb = GaussianNB()
+    gnb.fit(train_X,train_y)
+    print('训练完成...')
+
+    print('测试模型...')
+    test_pred = gnb.predict(test_X)
+    print(test_pred)
+    print('测试完成')
+
+    print('准确率:',cal_acc(test_y,test_pred))
