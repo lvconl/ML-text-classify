@@ -135,6 +135,23 @@ def cal_acc(true_salarys,pred_salarys):
      return acc
 
 
+def extract_feat_from_text(text,text_collection,common_words_freqs):
+    n_feat = len(common_words_freqs)
+    common_words = [word for word,_ in common_words_freqs]
+    feat_vec = []
+    X = np.zeros([1,n_feat])
+    for word in common_words:
+        if word in text:
+            tf_idf_val = text_collection.tf_idf(word,text)
+        else:
+            tf_idf_val = 0
+
+        feat_vec.append(tf_idf_val)
+
+    X = np.array(feat_vec).reshape(1,-1)
+    return X
+
+
 if __name__ == '__main__':
 
     #加载
@@ -166,6 +183,14 @@ if __name__ == '__main__':
     gnb = GaussianNB()
     gnb.fit(train_X,train_y)
     print('训练完成...')
+
+    '''
+    test_context = '大三年级，熟悉java基本框架，有小项目经验，熟悉数据库基本操作，熟悉设计模式'
+    test_cln_text = proc_text(test_context)
+    test_context_X = extract_feat_from_text(test_cln_text,text_collection,common_words_freqs)
+    '''
+
+
 
     print('测试模型...')
     test_pred = gnb.predict(test_X)
