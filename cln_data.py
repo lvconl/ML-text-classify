@@ -16,7 +16,8 @@ from sklearn.naive_bayes import GaussianNB
 
 dataset_path = './dataset'
 
-text_filename = 'train_set.txt'
+text_filename = 'cln_train_set.txt'
+#text_filename = 'train_set.txt'
 
 output_text_filename = 'raw_salary_text.csv'
 
@@ -48,7 +49,7 @@ def read_to_save():
 def proc_text(raw_line):
     stopwords = [line.rstrip() for line in open('stopwords.txt','r',encoding='utf-8')]
     filter_pattern = re.compile('[^\u4E00-\u9FD5]+')
-    cln_line = filter_pattern.sub('',raw_line)
+    cln_line = filter_pattern.sub('',str(raw_line))
 
     word_lst = jieba.cut(cln_line)
 
@@ -86,6 +87,9 @@ def load_train_set():
     train_text_df = train_text_df.reset_index()
     test_text_df = test_text_df.reset_index()
 
+    train_text_df = train_text_df.dropna(axis=0)
+    test_text_df = test_text_df.dropna(axis=0)
+
     return train_text_df,test_text_df
 
 
@@ -93,18 +97,19 @@ def get_word_list_from_data(text_df):
 
     word_list = []
     for _,r_data in text_df.iterrows():
-        word_list += r_data['text'].split(' ')
+        word_list += str(r_data['text']).split(' ')
 
     return word_list
 
 def extract_feat_from_data(text_df,text_collection,common_words_freqs):
 
     n_sample = text_df.shape[0]
+    print(n_sample)
     n_feat = len(common_words_freqs)
     common_words = [word for word,_ in common_words_freqs]
 
-    X = np.zeros([n_sample,n_feat])
-    y = np.zeros(n_sample)
+    X = np.zeros([n_sample * 2,n_feat])
+    y = np.zeros(n_sample * 2)
 
     print('提取特征...')
     for i,r_data in text_df.iterrows():
@@ -155,6 +160,7 @@ def extract_feat_from_text(text,text_collection,common_words_freqs):
 if __name__ == '__main__':
 
     #加载
+    #read_to_save()
     #run_main()
 
 
@@ -185,16 +191,17 @@ if __name__ == '__main__':
     print('训练完成...')
 
     '''
-    test_context = '大三年级，熟悉java基本框架，有小项目经验，熟悉数据库基本操作，熟悉设计模式'
+    test_context = '大三学生，数据数据库，有过小项目经验，应届本科毕业生'
     test_cln_text = proc_text(test_context)
     test_context_X = extract_feat_from_text(test_cln_text,text_collection,common_words_freqs)
     '''
 
 
 
+
     print('测试模型...')
     test_pred = gnb.predict(test_X)
-    print(test_pred)
+    #print(test_pred)
     print('测试完成')
 
     print('准确率:',cal_acc(test_y,test_pred))
